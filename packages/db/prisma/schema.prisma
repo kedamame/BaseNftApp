@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Campaign {
+  id              String            @id @default(cuid())
+  name            String
+  description     String?
+  creatorFid      Int
+  creatorAddress  String
+  contractAddress String?
+  tokenId         BigInt?
+  metadataUri     String
+  metadataFrozen  Boolean           @default(false)
+  distributionMode DistributionMode @default(MANUAL)
+  randomSeed      String?
+  randomCount     Int?
+  status          CampaignStatus    @default(DRAFT)
+  totalSupply     Int               @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  recipients      Recipient[]
+  distributions   Distribution[]
+  auditLogs       AuditLog[]
+  randomDraws     RandomDraw[]
+
+  @@index([creatorFid])
+  @@index([status])
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  DISTRIBUTING
+  COMPLETED
+  FAILED
+}
+
+enum DistributionMode {
+  MANUAL
+  RANDOM
+  ALL
+}
+
+model Recipient {
+  id            String          @id @default(cuid())
+  campaignId    String
+  campaign      Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  address       String
+  amount        Int             @default(1)
+  source        RecipientSource @default(MANUAL)
+  status        RecipientStatus @default(PENDING)
+  txHash        String?
+  error         String?
+  distributedAt DateTime?
+  createdAt     DateTime        @default(now())
+
+  @@unique([campaignId, address])
+  @@index([campaignId])
+  @@index([status])
+}
+
+enum RecipientSource {
+  MANUAL
+  CSV
+  NFT_HOLDERS
+  TOKEN_BALANCE
+  FARCASTER
+}
+
+enum RecipientStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Distribution {
+  id           String             @id @default(cuid())
+  campaignId   String
+  campaign     Campaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  batchIndex   Int
+  txHash       String?
+  status       DistributionStatus @default(PENDING)
+  recipientIds String[]
+  gasUsed      BigInt?
+  error        String?
+  retryCount   Int                @default(0)
+  idempotencyKey String?          @unique
+  createdAt    DateTime           @default(now())
+  completedAt  DateTime?
+
+  @@index([campaignId])
+  @@index([status])
+}
+
+enum DistributionStatus {
+  PENDING
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model RandomDraw {
+  id           String   @id @default(cuid())
+  campaignId   String
+  campaign     Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  serverSeed   String
+  blockHash    String?
+  nonce        Int
+  resultHash   String
+  selectedAddresses String[]
+  totalCandidates   Int
+  selectedCount     Int
+  createdAt    DateTime @default(now())
+
+  @@index([campaignId])
+}
+
+model AuditLog {
+  id         String    @id @default(cuid())
+  campaignId String?
+  campaign   Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  action     String
+  actor      String
+  actorFid   Int?
+  ipAddress  String?
+  details    Json?
+  createdAt  DateTime  @default(now())
+
+  @@index([campaignId])
+  @@index([action])
+  @@index([actor])
+}

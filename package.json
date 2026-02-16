@@ -1,0 +1,39 @@
+{
+  "name": "base-nft-app",
+  "private": true,
+  "packageManager": "pnpm@10.4.1",
+  "scripts": {
+    "dev": "pnpm --filter @base-nft/web dev",
+    "build": "pnpm --filter @base-nft/web build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @base-nft/db generate",
+    "db:migrate": "pnpm --filter @base-nft/db migrate:dev",
+    "db:deploy": "pnpm --filter @base-nft/db exec prisma migrate deploy",
+    "db:studio": "pnpm --filter @base-nft/db studio",
+    "forge:build": "cd packages/contracts && forge build",
+    "forge:test": "cd packages/contracts && forge test",
+    "worker": "pnpm --filter @base-nft/queue worker",
+    "clean": "pnpm -r clean"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "prettier": "^3.4.0",
+    "@types/node": "^22.0.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "@swc/core",
+      "sharp",
+      "keccak",
+      "@parcel/watcher",
+      "bufferutil",
+      "utf-8-validate",
+      "msgpackr-extract",
+      "esbuild"
+    ]
+  }
+}
