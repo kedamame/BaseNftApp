@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import type { WizardData } from './WizardShell';
 
@@ -8,9 +9,29 @@ interface Props {
   onEdit: (step: number) => void;
 }
 
+function decodeDataUri(uri: string): { name?: string; image?: string } | null {
+  if (!uri.startsWith('data:application/json;base64,')) return null;
+  try {
+    const b64 = uri.split(',')[1];
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    return null;
+  }
+}
+
 export function StepReview({ data, onEdit }: Props) {
   const t = useTranslations('Wizard');
   const tc = useTranslations('Common');
+
+  const decoded = useMemo(
+    () => decodeDataUri(data.metadataUri),
+    [data.metadataUri],
+  );
+
+  const metadataDisplay = decoded?.name
+    ? `${decoded.name} (data URI)`
+    : data.metadataUri;
 
   const rows = [
     { label: t('reviewName'), value: data.name, step: 0 },
@@ -21,7 +42,7 @@ export function StepReview({ data, onEdit }: Props) {
       value: `${data.recipients.length}`,
       step: 1,
     },
-    { label: t('reviewUri'), value: data.metadataUri, step: 2 },
+    { label: t('reviewUri'), value: metadataDisplay, step: 2 },
   ];
 
   return (
@@ -43,6 +64,16 @@ export function StepReview({ data, onEdit }: Props) {
           </div>
         ))}
       </div>
+
+      {decoded?.image?.startsWith('data:image/') && (
+        <div className="flex justify-center">
+          <img
+            src={decoded.image}
+            alt="NFT preview"
+            className="h-32 w-32 rounded-lg border object-cover"
+          />
+        </div>
+      )}
     </div>
   );
 }

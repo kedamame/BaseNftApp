@@ -15,17 +15,24 @@ export const createCampaignSchema = z
   .object({
     name: z.string().min(1).max(100),
     description: z.string().max(500).optional(),
-    metadataUri: z.string().refine(
-      (val) => {
-        try {
-          const url = new URL(val);
-          return ['https:', 'http:', 'ipfs:'].includes(url.protocol);
-        } catch {
-          return false;
-        }
-      },
-      'Must be a valid https, http, or ipfs URL',
-    ),
+    metadataUri: z
+      .string()
+      .refine(
+        (val) => {
+          if (val.startsWith('data:application/json;base64,')) return true;
+          try {
+            const url = new URL(val);
+            return ['https:', 'http:', 'ipfs:'].includes(url.protocol);
+          } catch {
+            return false;
+          }
+        },
+        'Must be a valid https, http, ipfs, or data URI',
+      )
+      .refine(
+        (val) => !val.startsWith('data:') || val.length <= 100_000,
+        'Data URI is too large (max ~100KB)',
+      ),
     distributionMode: z.enum(['manual', 'random', 'all']),
     randomCount: z.number().int().positive().optional(),
     recipients: z.array(recipientEntrySchema).min(1).max(10000),

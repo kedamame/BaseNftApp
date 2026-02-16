@@ -49,8 +49,11 @@ export function WizardShell() {
       case 1:
         return data.recipients.length > 0 && data.recipients.every((r) => isAddress(r.address));
       case 2: {
+        const uri = data.metadataUri.trim();
+        if (uri.startsWith('data:application/json;base64,'))
+          return uri.length <= 100_000;
         try {
-          const url = new URL(data.metadataUri.trim());
+          const url = new URL(uri);
           return ['https:', 'ipfs:'].includes(url.protocol);
         } catch {
           return false;
