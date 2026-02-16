@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { prisma, Prisma } from '@base-nft/db';
+import { prisma } from '@base-nft/db';
 import { createDistributionQueue } from '@base-nft/queue';
 import type { DistributionJobData } from '@base-nft/queue';
 import { extractFarcasterAuth, unauthorized } from '@/lib/auth';
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Prepare job data inside transaction, enqueue after commit
     const jobsToEnqueue: { name: string; data: DistributionJobData; jobId: string }[] = [];
 
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await prisma.$transaction(async (tx) => {
       for (const dist of failedDistributions) {
         // Re-check status inside transaction to prevent race condition
         const current = await tx.distribution.findUnique({ where: { id: dist.id } });

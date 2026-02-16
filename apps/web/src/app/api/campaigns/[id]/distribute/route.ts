@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createHash, randomBytes } from 'crypto';
-import { prisma, Prisma } from '@base-nft/db';
+import { prisma } from '@base-nft/db';
 import { createDistributionQueue } from '@base-nft/queue';
 import type { DistributionJobData } from '@base-nft/queue';
 import { extractFarcasterAuth, unauthorized } from '@/lib/auth';
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const queue = createDistributionQueue();
 
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await prisma.$transaction(async (tx) => {
       for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
         const batch = batches[batchIndex];
         const idempotencyKey = crypto.randomUUID();
