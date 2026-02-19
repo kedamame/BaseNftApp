@@ -3,9 +3,17 @@ import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const nextConfig: NextConfig = {
-  // Required for pnpm monorepo: tells Next.js to trace files from the repo root
-  // so Prisma's .node query engine binary is included in the Vercel bundle.
+  // Required for pnpm monorepo: tell Next.js to trace from the repo root
+  // and explicitly include Prisma's native query engine binary.
   outputFileTracingRoot: path.join(__dirname, '../../'),
+  outputFileTracingIncludes: {
+    '/api/**': [
+      '../../node_modules/.pnpm/@prisma+client@*/node_modules/.prisma/client/*.node',
+      '../../node_modules/.pnpm/@prisma+client@*/node_modules/@prisma/client/*.node',
+    ],
+  },
+  // Prevent Next.js from bundling Prisma — use the installed package as-is.
+  serverExternalPackages: ['@prisma/client', 'prisma'],
   transpilePackages: ['@base-nft/shared', '@base-nft/db', '@base-nft/queue'],
   async redirects() {
     return [
