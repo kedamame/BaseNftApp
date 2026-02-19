@@ -5,17 +5,9 @@ import sdk from '@farcaster/miniapp-sdk';
 
 export function FarcasterProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
-    const init = async () => {
-      try {
-        const context = await sdk.context;
-        if (context) {
-          sdk.actions.ready();
-        }
-      } catch {
-        // Not running inside a Farcaster client — skip initialization
-      }
-    };
-    init();
+    // Must be called unconditionally to dismiss the splash screen.
+    // sdk handles the no-op case when not running inside a Farcaster client.
+    sdk.actions.ready();
   }, []);
 
   return <>{children}</>;
