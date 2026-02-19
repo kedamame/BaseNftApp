@@ -107,6 +107,8 @@
     "reviewMode": "モード",
     "reviewRecipients": "受取人",
     "reviewUri": "トークンURI",
+    "deployWaitingWallet": "ウォレット接続を待機中...",
+    "deployWalletNotFound": "ウォレットが見つかりません。MetaMask等のウォレットを接続してから再試行してください。",
     "deployTitle": "キャンペーンをデプロイ中",
     "deployStep": "コントラクトをデプロイ中...",
     "grantRoleStep": "オペレーターロールを付与中...",

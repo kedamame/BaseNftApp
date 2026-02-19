@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { useWalletClient } from 'wagmi';
 import { Link } from '@/i18n/navigation';
 import { useDeployCampaign, type DeployStep } from '@/hooks/useDeployCampaign';
 import type { WizardData } from './WizardShell';
@@ -20,11 +21,20 @@ const STEP_KEYS: Record<DeployStep, string> = {
 export function StepDeploy({ data }: Props) {
   const t = useTranslations('Wizard');
   const [currentStep, setCurrentStep] = useState<DeployStep>('deploy');
+  const [walletTimeout, setWalletTimeout] = useState(false);
   const { mutate, data: result, error, isPending } = useDeployCampaign(setCurrentStep);
+  const { data: walletClient } = useWalletClient();
   const startedRef = useRef(false);
+
+  // Time out if wallet never becomes available (10s)
+  useEffect(() => {
+    const id = setTimeout(() => setWalletTimeout(true), 10_000);
+    return () => clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     if (startedRef.current) return;
+    if (!walletClient) return; // Wait for wallet to be ready
     startedRef.current = true;
     mutate({
       name: data.name,
@@ -34,7 +44,26 @@ export function StepDeploy({ data }: Props) {
       randomCount: data.distributionMode === 'random' ? data.randomCount : undefined,
       recipients: data.recipients,
     });
-  }, [mutate, data]);
+  }, [mutate, data, walletClient]);
+
+  if (!walletClient && !result && !error) {
+    return (
+      <div className="space-y-4 text-center">
+        <h3 className="text-lg font-medium">{t('deployTitle')}</h3>
+        {walletTimeout ? (
+          <div className="rounded-lg bg-red-50 p-4">
+            <p className="text-sm font-medium text-red-700">{t('deployError')}</p>
+            <p className="mt-1 text-xs text-red-500">{t('deployWalletNotFound')}</p>
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-gray-500">{t('deployWaitingWallet')}</p>
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600" />
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 text-center">

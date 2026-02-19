@@ -107,6 +107,8 @@
     "reviewMode": "Mode",
     "reviewRecipients": "Recipients",
     "reviewUri": "Token URI",
+    "deployWaitingWallet": "Waiting for wallet connection...",
+    "deployWalletNotFound": "No wallet found. Please connect a wallet (MetaMask, etc.) and try again.",
     "deployTitle": "Deploying Campaign",
     "deployStep": "Deploying contract...",
     "grantRoleStep": "Granting operator role...",
