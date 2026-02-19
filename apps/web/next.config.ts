@@ -3,6 +3,16 @@ import createNextIntlPlugin from 'next-intl/plugin';
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@base-nft/shared', '@base-nft/db', '@base-nft/queue'],
+  async redirects() {
+    return [
+      {
+        source: '/.well-known/farcaster.json',
+        destination:
+          'https://api.farcaster.xyz/miniapps/hosted-manifest/019c7464-b921-6440-5943-748781c697aa',
+        permanent: false, // 307 temporary redirect
+      },
+    ];
+  },
   async headers() {
     return [
       {
