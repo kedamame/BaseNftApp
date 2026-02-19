@@ -32,6 +32,8 @@ export function handleZodError(err: ZodError) {
 }
 
 export function serverError(err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
   console.error('[API]', err);
-  return error('INTERNAL_ERROR', undefined, 500);
+  // TODO: remove message from response before go-live (debug only)
+  return error('INTERNAL_ERROR', message, 500);
 }
