@@ -1,5 +1,8 @@
-import { type WalletClient, type PublicClient, type Chain, type Transport, type Account, decodeEventLog } from 'viem';
+import { type WalletClient, type PublicClient, type Chain, type Transport, type Account, decodeEventLog, keccak256, toBytes } from 'viem';
 import { nftFactoryAbi, campaignNftAbi } from '@base-nft/shared';
+
+// keccak256("OPERATOR_ROLE") — matches CampaignNFT.sol constant
+const OPERATOR_ROLE = keccak256(toBytes('OPERATOR_ROLE'));
 
 type ConnectedWalletClient = WalletClient<Transport, Chain, Account>;
 
@@ -22,7 +25,9 @@ export async function deployCampaign(
   });
 
   // Extract clone address from CampaignCreated event
+  // Filter to logs emitted by the factory contract to avoid false matches
   for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== factoryAddress.toLowerCase()) continue;
     try {
       const decoded = decodeEventLog({
         abi: nftFactoryAbi,
@@ -46,17 +51,12 @@ export async function grantOperatorRole(
   campaignAddress: `0x${string}`,
   operatorAddress: `0x${string}`,
 ): Promise<void> {
-  const operatorRole = await publicClient.readContract({
-    address: campaignAddress,
-    abi: campaignNftAbi,
-    functionName: 'OPERATOR_ROLE',
-  });
-
+  // Use the pre-computed constant instead of reading from contract
   const txHash = await walletClient.writeContract({
     address: campaignAddress,
     abi: campaignNftAbi,
     functionName: 'grantRole',
-    args: [operatorRole, operatorAddress],
+    args: [OPERATOR_ROLE, operatorAddress],
   });
 
   await publicClient.waitForTransactionReceipt({
