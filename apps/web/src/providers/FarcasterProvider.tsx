@@ -5,15 +5,11 @@ import sdk from '@farcaster/miniapp-sdk';
 import { useConnect } from 'wagmi';
 import { farcasterMiniApp } from '@farcaster/miniapp-wagmi-connector';
 
-export function FarcasterProvider({ children }: { children: ReactNode }) {
+// Inner component that uses wagmi hooks — must be rendered inside WagmiProvider
+function FarcasterAutoConnect() {
   const { connect } = useConnect();
 
   useEffect(() => {
-    // Dismiss the splash screen unconditionally
-    sdk.actions.ready();
-
-    // Auto-connect the Farcaster wallet when running inside a Farcaster client.
-    // This avoids requiring the user to manually tap "Connect" in the miniapp.
     sdk.context
       .then((context) => {
         if (context) {
@@ -25,5 +21,18 @@ export function FarcasterProvider({ children }: { children: ReactNode }) {
       });
   }, [connect]);
 
+  return null;
+}
+
+// Outer provider: calls ready() immediately, then delegates auto-connect
+// to FarcasterAutoConnect which must be placed inside WagmiProvider.
+export function FarcasterProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    // Must be called unconditionally to dismiss the splash screen.
+    sdk.actions.ready();
+  }, []);
+
   return <>{children}</>;
 }
+
+export { FarcasterAutoConnect };

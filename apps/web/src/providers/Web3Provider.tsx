@@ -4,6 +4,7 @@ import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { wagmiConfig } from '@/config/wagmi';
 import { useState, type ReactNode } from 'react';
+import { FarcasterAutoConnect } from '@/providers/FarcasterProvider';
 
 export function Web3Provider({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -17,7 +18,10 @@ export function Web3Provider({ children }: { children: ReactNode }) {
 
   return (
     <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <FarcasterAutoConnect />
+        {children}
+      </QueryClientProvider>
     </WagmiProvider>
   );
 }
