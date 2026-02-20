@@ -37,9 +37,31 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       'fc:miniapp': JSON.stringify({
         version: '1',
         imageUrl: `${APP_URL}/api/og`,
-        buttonTitle: 'Open App',
-        splashImageUrl: `${APP_URL}/splash.png`,
-        splashBackgroundColor: '#1E40AF',
+        button: {
+          title: 'Open App',
+          action: {
+            type: 'launch_miniapp',
+            url: APP_URL,
+            name: 'Base NFT Airdrop',
+            splashImageUrl: `${APP_URL}/splash.png`,
+            splashBackgroundColor: '#1E40AF',
+          },
+        },
+      }),
+      // Backward compatibility with older Farcaster clients
+      'fc:frame': JSON.stringify({
+        version: '1',
+        imageUrl: `${APP_URL}/api/og`,
+        button: {
+          title: 'Open App',
+          action: {
+            type: 'launch_miniapp',
+            url: APP_URL,
+            name: 'Base NFT Airdrop',
+            splashImageUrl: `${APP_URL}/splash.png`,
+            splashBackgroundColor: '#1E40AF',
+          },
+        },
       }),
     },
   };
