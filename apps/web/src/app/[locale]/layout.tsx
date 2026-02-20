@@ -31,12 +31,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: t('title'),
       description: t('description'),
       type: 'website',
-      images: APP_URL ? [`${APP_URL}/og.png`] : [],
+      images: APP_URL ? [`${APP_URL}/api/og`] : [],
     },
     other: {
       'fc:miniapp': JSON.stringify({
         version: '1',
-        imageUrl: `${APP_URL}/og.png`,
+        imageUrl: `${APP_URL}/api/og`,
         buttonTitle: 'Open App',
         splashImageUrl: `${APP_URL}/splash.png`,
         splashBackgroundColor: '#1E40AF',
