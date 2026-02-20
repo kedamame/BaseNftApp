@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import { useAccount, useConnect, useDisconnect, useConnectors } from 'wagmi';
 import { useTranslations } from 'next-intl';
 
@@ -9,6 +10,19 @@ export function ConnectButton() {
   const { disconnect } = useDisconnect();
   const connectors = useConnectors();
   const t = useTranslations('Common');
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   if (isConnected && address) {
     return (
@@ -21,11 +35,10 @@ export function ConnectButton() {
     );
   }
 
-  // Filter out farcasterMiniApp connector in browser context (window.ethereum check)
-  const browserConnectors = connectors.filter((c) => c.id !== 'farcasterMiniApp');
   const farcasterConnector = connectors.find((c) => c.id === 'farcasterMiniApp');
+  const browserConnectors = connectors.filter((c) => c.id !== 'farcasterMiniApp');
 
-  // Inside Farcaster client: show a single connect button using farcaster connector
+  // Inside Farcaster client (no window.ethereum): single button
   if (farcasterConnector && typeof window !== 'undefined' && !window.ethereum) {
     return (
       <button
@@ -38,7 +51,7 @@ export function ConnectButton() {
     );
   }
 
-  // Browser context: show available injected wallets
+  // No wallets found
   if (browserConnectors.length === 0) {
     return (
       <a
@@ -52,6 +65,7 @@ export function ConnectButton() {
     );
   }
 
+  // Single connector: simple button
   if (browserConnectors.length === 1) {
     return (
       <button
@@ -64,19 +78,39 @@ export function ConnectButton() {
     );
   }
 
-  // Multiple connectors: show each one
+  // Multiple connectors: dropdown
   return (
-    <div className="flex gap-2">
-      {browserConnectors.map((connector) => (
-        <button
-          key={connector.id}
-          onClick={() => connect({ connector })}
-          disabled={isPending}
-          className="rounded-lg bg-blue-600 px-3 py-2 text-xs text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
-        >
-          {connector.name}
-        </button>
-      ))}
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        disabled={isPending}
+        className="flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+      >
+        {isPending ? t('connecting') : t('connectWallet')}
+        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+          {browserConnectors.map((connector) => (
+            <button
+              key={connector.id}
+              onClick={() => {
+                connect({ connector });
+                setOpen(false);
+              }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              {connector.icon && (
+                <img src={connector.icon} alt="" className="h-5 w-5 rounded" />
+              )}
+              <span>{connector.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
