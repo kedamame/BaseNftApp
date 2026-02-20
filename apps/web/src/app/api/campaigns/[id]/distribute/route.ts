@@ -1,12 +1,9 @@
 import { NextRequest } from 'next/server';
-import { createHash, randomBytes } from 'crypto';
 import { prisma } from '@base-nft/db';
-import { createDistributionQueue } from '@base-nft/queue';
-import type { DistributionJobData } from '@base-nft/queue';
+import { campaignNftAbi } from '@base-nft/shared';
+import { getPublicClient, getWalletClient, getDeployerAccount } from '@base-nft/shared/server';
 import { extractFarcasterAuth, unauthorized } from '@/lib/auth';
 import { success, error, serverError } from '@/lib/api';
-
-const BATCH_SIZE = 100;
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -34,114 +31,73 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return error('NO_RECIPIENTS', 'No pending recipients to distribute to', 400);
     }
 
-    let eligibleRecipients = campaign.recipients;
+    const publicClient = getPublicClient();
+    const walletClient = getWalletClient();
+    const account = getDeployerAccount();
 
-    // Random draw for RANDOM distribution mode
-    if (campaign.distributionMode === 'RANDOM' && campaign.randomCount) {
-      const serverSeed = randomBytes(32).toString('hex');
-      const candidates = [...eligibleRecipients];
-      const selectedCount = Math.min(campaign.randomCount, candidates.length);
+    const contractAddress = campaign.contractAddress as `0x${string}`;
+    const tokenId = campaign.tokenId!;
+    const recipients = campaign.recipients;
 
-      // Fisher-Yates shuffle with deterministic seed
-      for (let i = candidates.length - 1; i > 0; i--) {
-        const hashInput = `${serverSeed}:${i}`;
-        const hash = createHash('sha256').update(hashInput).digest();
-        const j = hash.readUInt32BE(0) % (i + 1);
-        [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
-      }
+    // Mark campaign as distributing
+    await prisma.campaign.update({
+      where: { id },
+      data: { status: 'DISTRIBUTING' },
+    });
 
-      const selected = candidates.slice(0, selectedCount);
-      const selectedAddresses = selected.map((r) => r.address);
-      const resultHash = createHash('sha256')
-        .update(serverSeed + JSON.stringify(selectedAddresses))
-        .digest('hex');
+    // Mint directly — process all recipients in one mintBatch call
+    const addresses = recipients.map((r) => r.address as `0x${string}`);
+    const amounts = recipients.map((r) => BigInt(r.amount));
 
-      await prisma.randomDraw.create({
+    // Simulate first to catch reverts early
+    await publicClient.simulateContract({
+      address: contractAddress,
+      abi: campaignNftAbi,
+      functionName: 'mintBatch',
+      args: [addresses, tokenId, amounts],
+      account,
+    });
+
+    const txHash = await walletClient.writeContract({
+      address: contractAddress,
+      abi: campaignNftAbi,
+      functionName: 'mintBatch',
+      args: [addresses, tokenId, amounts],
+    });
+
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: txHash,
+      confirmations: 1,
+    });
+
+    if (receipt.status === 'reverted') {
+      await prisma.campaign.update({ where: { id }, data: { status: 'FAILED' } });
+      return error('TX_REVERTED', `Transaction reverted: ${txHash}`, 500);
+    }
+
+    // Mark all recipients and campaign as completed
+    const now = new Date();
+    await prisma.$transaction([
+      prisma.recipient.updateMany({
+        where: { id: { in: recipients.map((r) => r.id) } },
+        data: { status: 'COMPLETED', txHash, distributedAt: now },
+      }),
+      prisma.campaign.update({
+        where: { id },
+        data: { status: 'COMPLETED' },
+      }),
+      prisma.auditLog.create({
         data: {
           campaignId: id,
-          serverSeed,
-          blockHash: '',
-          nonce: 0,
-          resultHash,
-          selectedAddresses,
-          totalCandidates: candidates.length,
-          selectedCount,
+          action: 'DISTRIBUTION_COMPLETED',
+          actor: String(auth.fid),
+          actorFid: auth.fid,
+          details: { txHash, recipientCount: recipients.length },
         },
-      });
+      }),
+    ]);
 
-      eligibleRecipients = selected;
-    }
-
-    // Split into batches
-    const batches: (typeof eligibleRecipients)[] = [];
-    for (let i = 0; i < eligibleRecipients.length; i += BATCH_SIZE) {
-      batches.push(eligibleRecipients.slice(i, i + BATCH_SIZE));
-    }
-
-    const queue = createDistributionQueue();
-
-    await prisma.$transaction(async (tx) => {
-      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-        const batch = batches[batchIndex];
-        const idempotencyKey = crypto.randomUUID();
-
-        await tx.distribution.create({
-          data: {
-            campaignId: id,
-            batchIndex,
-            recipientIds: batch.map((r) => r.id),
-            status: 'QUEUED',
-            idempotencyKey,
-          },
-        });
-
-        await tx.recipient.updateMany({
-          where: { id: { in: batch.map((r) => r.id) } },
-          data: { status: 'QUEUED' },
-        });
-
-        const jobData: DistributionJobData = {
-          campaignId: id,
-          batchIndex,
-          recipientAddresses: batch.map((r) => r.address as `0x${string}`),
-          amounts: batch.map((r) => r.amount),
-          contractAddress: campaign.contractAddress as `0x${string}`,
-          tokenId: campaign.tokenId!.toString(),
-          idempotencyKey,
-        };
-
-        await queue.add(`distribute-${id}-${batchIndex}`, jobData, {
-          jobId: idempotencyKey,
-        });
-      }
-
-      await tx.campaign.update({
-        where: { id },
-        data: { status: 'DISTRIBUTING' },
-      });
-    });
-
-    await queue.close();
-
-    await prisma.auditLog.create({
-      data: {
-        campaignId: id,
-        action: 'DISTRIBUTION_STARTED',
-        actor: String(auth.fid),
-        actorFid: auth.fid,
-        details: {
-          totalRecipients: eligibleRecipients.length,
-          batchCount: batches.length,
-          batchSize: BATCH_SIZE,
-        },
-      },
-    });
-
-    return success({
-      campaignId: id,
-      batchCount: batches.length,
-      totalRecipients: eligibleRecipients.length,
-    });
+    return success({ campaignId: id, txHash, recipientCount: recipients.length });
   } catch (err) {
     return serverError(err);
   }
